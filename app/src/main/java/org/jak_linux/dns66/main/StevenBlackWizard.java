@@ -9,9 +9,8 @@ import org.jak_linux.dns66.FileHelper;
 import org.jak_linux.dns66.MainActivity;
 import org.jak_linux.dns66.R;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Allows editing the StevenBlack hosts files with a simple checklist dialog
@@ -53,14 +52,74 @@ public class StevenBlackWizard implements DialogInterface.OnMultiChoiceClickList
 
     // ------------------- private -------------------
 
-    // constants
-    private static final String BASE_URL_PREFIX = "https://raw.githubusercontent.com/StevenBlack/hosts/master"; // prefix of the base url
-    private static final String BASE_URL_SUFFIX = "/hosts"; // suffix of the base url
-    private static final String ALT_URL_PREFIX = "/alternates/"; // prefix of the alternate middle part
-    private static final String ALT_URL_SEP = "-"; // separator of entries in the alternate part
-    private static final String TITLE_ALT_SEP = " + "; // separator of entries for the title part
-    private static final Pattern URL_REGEXP = Pattern.compile(BASE_URL_PREFIX + "(" + ALT_URL_PREFIX + "([^/]*))?" + BASE_URL_SUFFIX); // regexp for the url
-    private static final String[] ALT_URL_NAMES = {"fakenews", "gambling", "porn", "social"}; // elements in the alternate part (in order)
+    /**
+     * List of all possible urls
+     * URLS, TITLES and CHECKS must follow same order
+     */
+    private static final ArrayList<String> URLS = new ArrayList<>(Arrays.asList(
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/gambling/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/social/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-porn/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-social/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/gambling-porn/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/gambling-social/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-social/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-social/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-porn-social/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/gambling-porn-social/hosts",
+            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn-social/hosts"
+    ));
+
+    /**
+     * List of all possible titles
+     * URLS, TITLES and CHECKS must follow same order
+     */
+    private static final ArrayList<String> TITLES = new ArrayList<>(Arrays.asList(
+            "StevenBlack's hosts file (includes all others)",
+            "StevenBlack's hosts file (includes all others) + fakenews",
+            "StevenBlack's hosts file (includes all others) + gambling",
+            "StevenBlack's hosts file (includes all others) + porn",
+            "StevenBlack's hosts file (includes all others) + social",
+            "StevenBlack's hosts file (includes all others) + fakenews + gambling",
+            "StevenBlack's hosts file (includes all others) + fakenews + porn",
+            "StevenBlack's hosts file (includes all others) + fakenews + social",
+            "StevenBlack's hosts file (includes all others) + gambling + porn",
+            "StevenBlack's hosts file (includes all others) + gambling + social",
+            "StevenBlack's hosts file (includes all others) + porn + social",
+            "StevenBlack's hosts file (includes all others) + fakenews + gambling + porn",
+            "StevenBlack's hosts file (includes all others) + fakenews + gambling + social",
+            "StevenBlack's hosts file (includes all others) + fakenews + porn + social",
+            "StevenBlack's hosts file (includes all others) + gambling + porn + social",
+            "StevenBlack's hosts file (includes all others) + fakenews + gambling + porn + social"
+    ));
+
+    /**
+     * List of the corresponding checked values
+     * URLS, TITLES and CHECKS must follow same order
+     */
+    private static final ArrayList<BooleanArray> CHECKS = new ArrayList<>(Arrays.asList(
+            new BooleanArray(true, false, false, false, false),
+            new BooleanArray(true, true, false, false, false),
+            new BooleanArray(true, false, true, false, false),
+            new BooleanArray(true, false, false, true, false),
+            new BooleanArray(true, false, false, false, true),
+            new BooleanArray(true, true, true, false, false),
+            new BooleanArray(true, true, false, true, false),
+            new BooleanArray(true, true, false, false, true),
+            new BooleanArray(true, false, true, true, false),
+            new BooleanArray(true, false, true, false, true),
+            new BooleanArray(true, false, false, true, true),
+            new BooleanArray(true, true, true, true, false),
+            new BooleanArray(true, true, true, false, true),
+            new BooleanArray(true, true, false, true, true),
+            new BooleanArray(true, false, true, true, true),
+            new BooleanArray(true, true, true, true, true)
+    ));
 
     // variables
     private boolean[] checked = new boolean[5]; // shown checkboxes in the dialog
@@ -105,28 +164,16 @@ public class StevenBlackWizard implements DialogInterface.OnMultiChoiceClickList
         for (int i = listAdapter.items.size() - 1; i >= 0; i--) {
             // for each entry check the url
             Configuration.Item item = listAdapter.items.get(i);
-            final Matcher matcher = URL_REGEXP.matcher(item.location);
-            if (matcher.matches()) {
-                // url matches, item found
+            final int index = URLS.indexOf(item.location);
+            if (index != -1) {
+                // url valid, item found
                 hostIndex = i;
 
                 // get elements
                 switch (item.state) {
                     case Configuration.Item.STATE_DENY:
                         // item enabled, valid
-                        checked[0] = true;
-
-                        // get alternated
-                        String group = matcher.group(2);
-                        if (group == null) {
-                            // the normal file, nothing else checked
-                            Arrays.fill(checked, 1, 5, false);
-                        } else {
-                            // an alternate file, check whether elements are present or not
-                            for (int a = 0; a < ALT_URL_NAMES.length; a++) {
-                                checked[a + 1] = group.contains(ALT_URL_NAMES[a]);
-                            }
-                        }
+                        checked = CHECKS.get(index).getArray();
                         // stop search
                         return;
                     case Configuration.Item.STATE_ALLOW:
@@ -156,37 +203,64 @@ public class StevenBlackWizard implements DialogInterface.OnMultiChoiceClickList
             item = listAdapter.items.get(hostIndex);
         }
 
-        // create item properties
-        StringBuilder middle_url = new StringBuilder(); // the url middle part
-        StringBuilder title = new StringBuilder(FileHelper.loadDefaultSettings(cntx).hosts.items.get(0).title); // the title of the entry
-        int state;
-
-        if (!checked[0]) {
-            // disabled
-            state = Configuration.Item.STATE_IGNORE;
-        } else {
-            // enabled
-            state = Configuration.Item.STATE_DENY;
-
-            // update title and middle_url
-            for (int i = 0; i < ALT_URL_NAMES.length; i++) {
-                if (checked[i + 1]) {
-                    middle_url.append(middle_url.length() == 0 ? ALT_URL_PREFIX : ALT_URL_SEP) // if first, add the prefix, otherwise add the separator
-                            .append(ALT_URL_NAMES[i]);
-                    title.append(TITLE_ALT_SEP)
-                            .append(cntx.getResources().getStringArray(R.array.stevenblack_items)[i + 1]);
-                }
-            }
-        }
+        // get setting index
+        int index = CHECKS.indexOf(new BooleanArray(checked));
 
         // set item settings
-        item.state = state;
-        item.location = BASE_URL_PREFIX + middle_url.toString() + BASE_URL_SUFFIX;
-        item.title = title.toString();
+        if (index == -1) {
+            // not found => all unselected => disabled
+            item.state = Configuration.Item.STATE_IGNORE;
+
+            // the rest of the settings are set same as the default
+            index = 0;
+        } else {
+            // found => enabled
+            item.state = Configuration.Item.STATE_DENY;
+        }
+
+        item.location = URLS.get(index);
+        item.title = TITLES.get(index);
+
 
         // update
         listAdapter.notifyDataSetChanged();
         FileHelper.writeSettings(cntx, MainActivity.config);
+    }
+
+
+    // ------------------- utils -------------------
+
+    /**
+     * When using an Arraylist, ArrayList#indexOf uses equals.
+     * If the ArrayList contains arrays (boolean[]) no objects are found (equals check for same objects, not content).
+     * This wrapper overrides equals to use Arrays#equals, allowing searching.
+     * Also allows to modify the returned array (the getter returns a clone)
+     */
+    private static class BooleanArray {
+        private final boolean[] array;
+
+        private BooleanArray(boolean... params) {
+            array = params;
+        }
+
+        private boolean[] getArray() {
+            return array.clone(); // as clone
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            BooleanArray that = (BooleanArray) o;
+
+            return Arrays.equals(array, that.array); // check content
+        }
+
+        @Override
+        public int hashCode() {
+            return Arrays.hashCode(array);
+        }
     }
 
 }
